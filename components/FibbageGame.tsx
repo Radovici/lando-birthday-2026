@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { FibbageAnswer, FIBBAGE_QUESTIONS, Lang } from '@/lib/types';
 
@@ -23,6 +24,12 @@ export default function FibbageGame({ currentUser, lang }: Props) {
   const [loading, setLoading] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
+  // Refs so subscription callbacks always see the latest values without stale closures
+  const currentUserRef = useRef(currentUser);
+  const langRef = useRef(lang);
+  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+  useEffect(() => { langRef.current = lang; }, [lang]);
+
   // Derive local display state from remoteState (or defaults)
   const phase = (remoteState?.phase ?? 'waiting') as 'waiting' | 'answering' | 'voting' | 'results' | 'finished';
   const currentQuestionId = remoteState?.current_question_id ?? 1;
@@ -40,10 +47,17 @@ export default function FibbageGame({ currentUser, lang }: Props) {
 
   useEffect(() => {
     fetchRemoteState();
+    // TODO: extract to @radovici/aide-realtime useGameState hook
     const channel = supabase
       .channel('fibbage-game-state')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lando_party_game_state', filter: 'id=eq.fibbage' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lando_party_game_state', filter: 'id=eq.fibbage' }, (payload) => {
         fetchRemoteState();
+        const newPhase = (payload.new as Partial<RemoteGameState>)?.phase;
+        const hostMsg = (payload.new as Partial<RemoteGameState>)?.host_message;
+        if (newPhase === 'answering') toast('🎭 ' + (langRef.current === 'fr' ? 'Inventez une réponse!' : 'Invent a fake answer!'));
+        if (newPhase === 'voting') toast.success('🗳️ ' + (langRef.current === 'fr' ? 'Votez maintenant!' : 'Time to vote!'));
+        if (newPhase === 'results') toast.success('🎯 ' + (langRef.current === 'fr' ? 'La vraie réponse!' : 'The real answer!'));
+        if (hostMsg) toast(hostMsg);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -62,9 +76,20 @@ export default function FibbageGame({ currentUser, lang }: Props) {
 
   useEffect(() => {
     fetchAnswers();
+    // TODO: extract to @radovici/aide-realtime useRealtimeTable hook
     const channel = supabase
       .channel('fibbage-answers')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lando_party_fibbage' }, fetchAnswers)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lando_party_fibbage' }, (payload) => {
+        fetchAnswers();
+        const submitter = (payload.new as { player_name?: string; is_real?: boolean })?.player_name;
+        const isReal = (payload.new as { is_real?: boolean })?.is_real;
+        if (submitter && !isReal && submitter !== currentUserRef.current?.name) {
+          toast('✍️ ' + (langRef.current === 'fr' ? `${submitter} a inventé une réponse!` : `${submitter} submitted an answer!`));
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lando_party_fibbage' }, () => {
+        fetchAnswers();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchAnswers]);

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { QuiplashAnswer, QUIPLASH_PROMPTS, Lang } from '@/lib/types';
 
@@ -24,6 +25,12 @@ export default function QuiplashGame({ currentUser, lang }: Props) {
   const [flash, setFlash] = useState<string | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
 
+  // Refs so subscription callbacks always see the latest values without stale closures
+  const currentUserRef = useRef(currentUser);
+  const langRef = useRef(lang);
+  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+  useEffect(() => { langRef.current = lang; }, [lang]);
+
   const phase = (remoteState?.phase ?? 'waiting') as 'waiting' | 'answering' | 'voting' | 'results' | 'finished';
   const currentPromptId = remoteState?.current_question_id ?? 1;
   const currentPrompt = QUIPLASH_PROMPTS.find(p => p.id === currentPromptId);
@@ -40,10 +47,17 @@ export default function QuiplashGame({ currentUser, lang }: Props) {
 
   useEffect(() => {
     fetchRemoteState();
+    // TODO: extract to @radovici/aide-realtime useGameState hook
     const channel = supabase
       .channel('quiplash-game-state')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lando_party_game_state', filter: 'id=eq.quiplash' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lando_party_game_state', filter: 'id=eq.quiplash' }, (payload) => {
         fetchRemoteState();
+        const newPhase = (payload.new as Partial<RemoteGameState>)?.phase;
+        const hostMsg = (payload.new as Partial<RemoteGameState>)?.host_message;
+        if (newPhase === 'answering') toast('💬 ' + (langRef.current === 'fr' ? 'Répondez maintenant!' : 'Answer time!'));
+        if (newPhase === 'voting') toast.success('📊 ' + (langRef.current === 'fr' ? 'On vote!' : 'Time to vote!'));
+        if (newPhase === 'results') toast.success('🏆 ' + (langRef.current === 'fr' ? 'Les résultats!' : 'Results!'));
+        if (hostMsg) toast(hostMsg);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -61,9 +75,19 @@ export default function QuiplashGame({ currentUser, lang }: Props) {
 
   useEffect(() => {
     fetchAnswers();
+    // TODO: extract to @radovici/aide-realtime useRealtimeTable hook
     const channel = supabase
       .channel('quiplash-answers')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lando_party_quiplash' }, fetchAnswers)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lando_party_quiplash' }, (payload) => {
+        fetchAnswers();
+        const submitter = (payload.new as { player_name?: string })?.player_name;
+        if (submitter && submitter !== currentUserRef.current?.name) {
+          toast('✍️ ' + (langRef.current === 'fr' ? `${submitter} a répondu!` : `${submitter} answered!`));
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lando_party_quiplash' }, () => {
+        fetchAnswers();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchAnswers]);
