@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Player, OlympicsScore, PartyEvent, TEAMS, OLYMPICS_EVENTS } from '@/lib/types';
+import { Player, OlympicsScore, PartyEvent, TEAMS, OLYMPICS_EVENTS, OLYMPICS_EVENTS_FR, TEAM_NAMES, Lang } from '@/lib/types';
 
 interface Props {
   tvMode: boolean;
+  lang: Lang;
 }
 
 interface TeamTotal {
@@ -24,7 +25,7 @@ const TEAM_BG: Record<string, string> = {
   'Team Blue': 'from-blue-900/60 to-blue-700/40',
 };
 
-export default function MainHub({ tvMode }: Props) {
+export default function MainHub({ tvMode, lang }: Props) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [scores, setScores] = useState<OlympicsScore[]>([]);
   const [recentEvents, setRecentEvents] = useState<(PartyEvent & { player?: Player })[]>([]);
@@ -57,7 +58,7 @@ export default function MainHub({ tvMode }: Props) {
         fetchData();
         if (payload.eventType === 'UPDATE' && payload.new) {
           const p = payload.new as Player;
-          setFlash(`${p.name} updated!`);
+          setFlash(`${p.name} ${lang === 'fr' ? 'mis à jour!' : 'updated!'}`);
           setTimeout(() => setFlash(null), 2000);
         }
       })
@@ -65,19 +66,21 @@ export default function MainHub({ tvMode }: Props) {
         fetchData();
         if (payload.eventType === 'INSERT' && payload.new) {
           const e = payload.new as PartyEvent;
-          setFlash(e.type === 'star' ? `⭐ STAR AWARDED!` : `😈 Demerit!`);
+          setFlash(e.type === 'star'
+            ? (lang === 'fr' ? '⭐ ÉTOILE ATTRIBUÉE!' : '⭐ STAR AWARDED!')
+            : (lang === 'fr' ? '😈 Point négatif!' : '😈 Demerit!'));
           setTimeout(() => setFlash(null), 2500);
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lando_party_scores' }, () => {
         fetchData();
-        setFlash('🏆 SCORE UPDATE!');
+        setFlash(lang === 'fr' ? '🏆 MISE À JOUR DU SCORE!' : '🏆 SCORE UPDATE!');
         setTimeout(() => setFlash(null), 2000);
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [fetchData]);
+  }, [fetchData, lang]);
 
   // Calculate team totals
   const teamTotals: TeamTotal[] = TEAMS.map(team => {
@@ -132,17 +135,17 @@ export default function MainHub({ tvMode }: Props) {
       <div className="text-center mb-6 relative">
         <h1 className={`${titleSize} font-black birthday-glow leading-tight`}
           style={{ fontFamily: 'Impact, Arial Black, sans-serif', color: '#FFD700' }}>
-          🎈 LANDO'S 7TH BIRTHDAY! 🎈
+          {lang === 'fr' ? '🎈 LANDO A 7 ANS! 🎈' : "🎈 LANDO'S 7TH BIRTHDAY! 🎈"}
         </h1>
         <p className={`${tvMode ? 'text-3xl' : 'text-lg'} text-yellow-300 font-bold mt-2`}>
-          October 4, 2026 — Party Time! 🎊
+          {lang === 'fr' ? "4 octobre 2026 — C'est la fête! 🎊" : 'October 4, 2026 — Party Time! 🎊'}
         </p>
       </div>
 
       {/* Olympics Scoreboard - Big TV Display */}
       <div className="mb-6">
         <h2 className={`${headingSize} font-black text-center text-white mb-4 uppercase tracking-widest`}>
-          🏆 OLYMPICS SCOREBOARD 🏆
+          {lang === 'fr' ? '🏆 TABLEAU DES JEUX OLYMPIQUES 🏆' : '🏆 OLYMPICS SCOREBOARD 🏆'}
         </h2>
         <div className="grid grid-cols-2 gap-4 max-w-4xl mx-auto">
           {teamTotals.map((team) => (
@@ -152,20 +155,26 @@ export default function MainHub({ tvMode }: Props) {
             >
               <div className="text-center">
                 <div className={`${tvMode ? 'text-4xl' : 'text-2xl'} font-black text-white mb-1`}>
-                  {team.team === 'Team Red' ? '🔴' : '🔵'} {team.team}
+                  {team.team === 'Team Red' ? '🔴' : '🔵'} {TEAM_NAMES[team.team][lang]}
                 </div>
                 {team.team === leadingTeam.team && team.total > 0 && (
-                  <div className="text-yellow-400 font-bold text-sm mb-1">👑 LEADING!</div>
+                  <div className="text-yellow-400 font-bold text-sm mb-1">
+                    {lang === 'fr' ? '👑 EN TÊTE!' : '👑 LEADING!'}
+                  </div>
                 )}
                 <div className={`${scoreSize} font-black`} style={{ color: TEAM_COLORS[team.team] }}>
                   {team.total}
                 </div>
-                <div className={`${tvMode ? 'text-lg' : 'text-xs'} text-gray-300`}>POINTS</div>
+                <div className={`${tvMode ? 'text-lg' : 'text-xs'} text-gray-300`}>
+                  {lang === 'fr' ? 'POINTS' : 'POINTS'}
+                </div>
               </div>
               <div className="mt-3 space-y-1">
                 {OLYMPICS_EVENTS.map(event => (
                   <div key={event} className="flex justify-between items-center text-sm">
-                    <span className={`${tvMode ? 'text-xl' : 'text-sm'} text-gray-300`}>{event}</span>
+                    <span className={`${tvMode ? 'text-xl' : 'text-sm'} text-gray-300`}>
+                      {lang === 'fr' ? OLYMPICS_EVENTS_FR[event] : event}
+                    </span>
                     <span className={`${tvMode ? 'text-2xl' : 'text-base'} font-bold text-white`}>
                       {team.byEvent[event] || 0}
                     </span>
@@ -180,11 +189,11 @@ export default function MainHub({ tvMode }: Props) {
       {/* Kid Rankings - Leaderboard */}
       <div className="mb-6 max-w-4xl mx-auto">
         <h2 className={`${headingSize} font-black text-center text-white mb-4 uppercase tracking-widest`}>
-          ⭐ COOPERATION CHAMPIONS ⭐
+          {lang === 'fr' ? '⭐ CHAMPIONS DE COOPÉRATION ⭐' : '⭐ COOPERATION CHAMPIONS ⭐'}
         </h2>
         {players.length === 0 ? (
           <div className={`text-center ${tvMode ? 'text-3xl' : 'text-xl'} text-gray-400 py-8`}>
-            Waiting for kids to join... 👀
+            {lang === 'fr' ? 'En attente des enfants... 👀' : 'Waiting for kids to join... 👀'}
           </div>
         ) : (
           <div className="space-y-2">
@@ -207,7 +216,7 @@ export default function MainHub({ tvMode }: Props) {
                 <div className="flex-1">
                   <div className={`${playerNameSize} font-black text-white`}>{player.name}</div>
                   <div className={`${tvMode ? 'text-lg' : 'text-xs'} text-gray-400`}>
-                    Parent: {player.parent_name}
+                    {lang === 'fr' ? 'Parent:' : 'Parent:'} {player.parent_name}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -216,7 +225,9 @@ export default function MainHub({ tvMode }: Props) {
                       {'⭐'.repeat(Math.min(player.stars, tvMode ? 5 : 8))}
                       {player.stars > (tvMode ? 5 : 8) && <span className="text-yellow-400 ml-1">+{player.stars - (tvMode ? 5 : 8)}</span>}
                     </div>
-                    <div className={`${tvMode ? 'text-2xl font-bold' : 'text-sm'} text-yellow-300`}>{player.stars} stars</div>
+                    <div className={`${tvMode ? 'text-2xl font-bold' : 'text-sm'} text-yellow-300`}>
+                      {player.stars} {lang === 'fr' ? 'étoiles' : 'stars'}
+                    </div>
                   </div>
                   {player.demerits > 0 && (
                     <div className="text-center">
@@ -235,12 +246,12 @@ export default function MainHub({ tvMode }: Props) {
       {/* Recent Activity Feed */}
       <div className="max-w-4xl mx-auto">
         <h2 className={`${tvMode ? 'text-3xl' : 'text-xl'} font-black text-center text-white mb-3 uppercase tracking-widest`}>
-          📡 LIVE FEED
+          {lang === 'fr' ? '📡 EN DIRECT' : '📡 LIVE FEED'}
         </h2>
         <div className="space-y-2">
           {recentEvents.length === 0 ? (
             <div className={`text-center ${tvMode ? 'text-2xl' : 'text-base'} text-gray-500 py-4`}>
-              Party just getting started! 🎉
+              {lang === 'fr' ? 'La fête commence! 🎉' : 'Party just getting started! 🎉'}
             </div>
           ) : (
             recentEvents.slice(0, 5).map((event) => (
@@ -264,7 +275,7 @@ export default function MainHub({ tvMode }: Props) {
                   </span>
                 </div>
                 <div className={`${tvMode ? 'text-lg' : 'text-xs'} text-gray-500`}>
-                  by {event.given_by}
+                  {lang === 'fr' ? 'par' : 'by'} {event.given_by}
                 </div>
               </div>
             ))

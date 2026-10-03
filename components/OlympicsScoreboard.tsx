@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { OlympicsScore, TEAMS, OLYMPICS_EVENTS } from '@/lib/types';
+import { OlympicsScore, TEAMS, OLYMPICS_EVENTS, OLYMPICS_EVENTS_FR, TEAM_NAMES, Lang } from '@/lib/types';
 
 interface Props {
   currentUser: { name: string; kidName: string } | null;
+  lang: Lang;
 }
 
 const EVENT_EMOJIS: Record<string, string> = {
@@ -31,7 +32,7 @@ const TEAM_COLORS: Record<string, { bg: string; text: string; border: string; gl
   },
 };
 
-export default function OlympicsScoreboard({ currentUser }: Props) {
+export default function OlympicsScoreboard({ currentUser, lang }: Props) {
   const [scores, setScores] = useState<OlympicsScore[]>([]);
   const [adding, setAdding] = useState<{ team: string; event: string } | null>(null);
   const [points, setPoints] = useState(1);
@@ -73,7 +74,9 @@ export default function OlympicsScoreboard({ currentUser }: Props) {
         points,
         added_by: currentUser.name,
       });
-      setFlash(`+${points} for ${adding.team} in ${adding.event}! 🎉`);
+      const teamName = TEAM_NAMES[adding.team][lang];
+      const eventName = lang === 'fr' ? OLYMPICS_EVENTS_FR[adding.event] : adding.event;
+      setFlash(`+${points} ${lang === 'fr' ? 'pour' : 'for'} ${teamName} — ${eventName}! 🎉`);
       setTimeout(() => setFlash(null), 2000);
       setAdding(null);
       setPoints(1);
@@ -95,10 +98,12 @@ export default function OlympicsScoreboard({ currentUser }: Props) {
       )}
 
       <h2 className="text-3xl font-black text-center text-white mb-2 uppercase tracking-wide">
-        🏆 Olympics Scoreboard
+        {lang === 'fr' ? '🏆 Jeux olympiques' : '🏆 Olympics Scoreboard'}
       </h2>
       <p className="text-center text-gray-400 mb-6">
-        Add points for each team per event
+        {lang === 'fr'
+          ? 'Ajoutez des points pour chaque équipe par épreuve'
+          : 'Add points for each team per event'}
       </p>
 
       {/* Big team totals */}
@@ -114,11 +119,17 @@ export default function OlympicsScoreboard({ currentUser }: Props) {
             >
               <div className="text-center">
                 <div className="text-3xl font-black text-white">
-                  {team === 'Team Red' ? '🔴' : '🔵'} {team}
+                  {team === 'Team Red' ? '🔴' : '🔵'} {TEAM_NAMES[team][lang]}
                 </div>
-                {isLeading && <div className="text-yellow-400 font-bold text-sm">👑 LEADING</div>}
+                {isLeading && (
+                  <div className="text-yellow-400 font-bold text-sm">
+                    {lang === 'fr' ? '👑 EN TÊTE' : '👑 LEADING'}
+                  </div>
+                )}
                 <div className="text-6xl font-black text-white mt-2">{total}</div>
-                <div className={`text-sm ${colors.text}`}>TOTAL POINTS</div>
+                <div className={`text-sm ${colors.text}`}>
+                  {lang === 'fr' ? 'POINTS TOTAL' : 'TOTAL POINTS'}
+                </div>
               </div>
             </div>
           );
@@ -128,19 +139,20 @@ export default function OlympicsScoreboard({ currentUser }: Props) {
       {/* Event breakdown table */}
       <div className="mb-6 bg-white/5 rounded-2xl overflow-hidden">
         <div className="grid grid-cols-3 text-center py-3 bg-white/10 font-black text-gray-300 uppercase text-sm">
-          <div>Event</div>
-          <div className="text-red-400">🔴 Red</div>
-          <div className="text-blue-400">🔵 Blue</div>
+          <div>{lang === 'fr' ? 'Épreuve' : 'Event'}</div>
+          <div className="text-red-400">{lang === 'fr' ? '🔴 Rouge' : '🔴 Red'}</div>
+          <div className="text-blue-400">{lang === 'fr' ? '🔵 Bleu' : '🔵 Blue'}</div>
         </div>
         {OLYMPICS_EVENTS.map(event => {
           const redScore = getTeamEventTotal('Team Red', event);
           const blueScore = getTeamEventTotal('Team Blue', event);
           const redWins = redScore > blueScore;
           const blueWins = blueScore > redScore;
+          const displayName = lang === 'fr' ? OLYMPICS_EVENTS_FR[event] : event;
           return (
             <div key={event} className="grid grid-cols-3 items-center py-3 border-t border-white/10 px-2">
               <div className="text-sm text-white font-semibold">
-                {EVENT_EMOJIS[event] || '🏅'} {event}
+                {EVENT_EMOJIS[event] || '🏅'} {displayName}
               </div>
               <div className={`text-center text-2xl font-black ${redWins ? 'text-yellow-400' : 'text-red-300'}`}>
                 {redScore}
@@ -156,37 +168,44 @@ export default function OlympicsScoreboard({ currentUser }: Props) {
       {/* Add points section */}
       {currentUser && (
         <div>
-          <h3 className="text-2xl font-black text-white mb-4 text-center">Add Points</h3>
+          <h3 className="text-2xl font-black text-white mb-4 text-center">
+            {lang === 'fr' ? 'Ajouter des points' : 'Add Points'}
+          </h3>
           <div className="space-y-3">
-            {OLYMPICS_EVENTS.map(event => (
-              <div key={event} className="bg-white/5 rounded-xl p-4">
-                <div className="font-bold text-white mb-3">
-                  {EVENT_EMOJIS[event] || '🏅'} {event}
+            {OLYMPICS_EVENTS.map(event => {
+              const displayName = lang === 'fr' ? OLYMPICS_EVENTS_FR[event] : event;
+              return (
+                <div key={event} className="bg-white/5 rounded-xl p-4">
+                  <div className="font-bold text-white mb-3">
+                    {EVENT_EMOJIS[event] || '🏅'} {displayName}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {TEAMS.map(team => (
+                      <button
+                        key={team}
+                        onClick={() => setAdding({ team, event })}
+                        className={`py-3 rounded-xl font-bold text-sm transition-all ${
+                          team === 'Team Red'
+                            ? 'bg-red-600 hover:bg-red-500 text-white'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white'
+                        }`}
+                      >
+                        + {team === 'Team Red' ? '🔴' : '🔵'} {TEAM_NAMES[team][lang]}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {TEAMS.map(team => (
-                    <button
-                      key={team}
-                      onClick={() => setAdding({ team, event })}
-                      className={`py-3 rounded-xl font-bold text-sm transition-all ${
-                        team === 'Team Red'
-                          ? 'bg-red-600 hover:bg-red-500 text-white'
-                          : 'bg-blue-600 hover:bg-blue-500 text-white'
-                      }`}
-                    >
-                      + {team === 'Team Red' ? '🔴' : '🔵'} {team}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
 
       {!currentUser && (
         <div className="text-center text-yellow-400 text-lg p-4 bg-yellow-400/10 rounded-xl">
-          Register first to add points! 👆
+          {lang === 'fr'
+            ? 'Inscrivez-vous d\'abord pour ajouter des points! 👆'
+            : 'Register first to add points! 👆'}
         </div>
       )}
 
@@ -195,12 +214,14 @@ export default function OlympicsScoreboard({ currentUser }: Props) {
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-900 rounded-2xl p-6 w-full max-w-sm border border-white/20">
             <h3 className="text-xl font-black text-white mb-4 text-center">
-              Add Points
+              {lang === 'fr' ? 'Ajouter des points' : 'Add Points'}
             </h3>
             <div className="text-center mb-4">
-              <div className="text-lg text-gray-300">{adding.event}</div>
+              <div className="text-lg text-gray-300">
+                {lang === 'fr' ? OLYMPICS_EVENTS_FR[adding.event] : adding.event}
+              </div>
               <div className={`text-2xl font-black ${adding.team === 'Team Red' ? 'text-red-400' : 'text-blue-400'}`}>
-                {adding.team === 'Team Red' ? '🔴' : '🔵'} {adding.team}
+                {adding.team === 'Team Red' ? '🔴' : '🔵'} {TEAM_NAMES[adding.team][lang]}
               </div>
             </div>
             <div className="flex items-center justify-center gap-4 mb-6">
@@ -218,7 +239,9 @@ export default function OlympicsScoreboard({ currentUser }: Props) {
               <button
                 onClick={() => setAdding(null)}
                 className="flex-1 py-3 rounded-xl bg-gray-700 text-white font-bold"
-              >Cancel</button>
+              >
+                {lang === 'fr' ? 'Annuler' : 'Cancel'}
+              </button>
               <button
                 onClick={addScore}
                 disabled={loading}
@@ -226,7 +249,9 @@ export default function OlympicsScoreboard({ currentUser }: Props) {
                   adding.team === 'Team Red' ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'
                 }`}
               >
-                {loading ? 'Adding...' : `Add ${points} pts!`}
+                {loading
+                  ? (lang === 'fr' ? 'Ajout...' : 'Adding...')
+                  : (lang === 'fr' ? `Ajouter ${points} pts!` : `Add ${points} pts!`)}
               </button>
             </div>
           </div>

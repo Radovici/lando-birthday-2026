@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { Lang } from '@/lib/types';
 
 interface Props {
   onRegister: (user: { name: string; kidName: string }) => void;
+  lang: Lang;
 }
 
-export default function Register({ onRegister }: Props) {
+export default function Register({ onRegister, lang }: Props) {
   const [parentName, setParentName] = useState('');
   const [kidName, setKidName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,14 +18,13 @@ export default function Register({ onRegister }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!parentName.trim() || !kidName.trim()) {
-      setError('Please fill in both fields!');
+      setError(lang === 'fr' ? 'Veuillez remplir les deux champs!' : 'Please fill in both fields!');
       return;
     }
     setLoading(true);
     setError('');
 
     try {
-      // Check if kid already exists
       const { data: existing } = await supabase
         .from('lando_party_players')
         .select('*')
@@ -31,7 +32,6 @@ export default function Register({ onRegister }: Props) {
         .single();
 
       if (!existing) {
-        // Register the kid
         const { error: insertError } = await supabase
           .from('lando_party_players')
           .insert({
@@ -45,7 +45,7 @@ export default function Register({ onRegister }: Props) {
       onRegister({ name: parentName.trim(), kidName: kidName.trim() });
     } catch (err) {
       console.error(err);
-      setError('Something went wrong. Try again!');
+      setError(lang === 'fr' ? 'Quelque chose s\'est mal passé. Réessayez!' : 'Something went wrong. Try again!');
     } finally {
       setLoading(false);
     }
@@ -79,26 +79,32 @@ export default function Register({ onRegister }: Props) {
             className="text-5xl font-black birthday-glow leading-tight mb-3"
             style={{ fontFamily: 'Impact, Arial Black, sans-serif', color: '#FFD700' }}
           >
-            LANDO'S 7TH BIRTHDAY!
+            {lang === 'fr' ? '7 ANS DE LANDO!' : "LANDO'S 7TH BIRTHDAY!"}
           </h1>
-          <p className="text-gray-300 text-xl">October 4, 2026</p>
-          <p className="text-gray-400 mt-2">Join the party! 🎊</p>
+          <p className="text-gray-300 text-xl">
+            {lang === 'fr' ? '4 octobre 2026' : 'October 4, 2026'}
+          </p>
+          <p className="text-gray-400 mt-2">
+            {lang === 'fr' ? 'Rejoins la fête! 🎊' : 'Join the party! 🎊'}
+          </p>
         </div>
 
         {/* Register form */}
         <div className="bg-white/5 rounded-2xl p-6 border border-white/10 backdrop-blur">
-          <h2 className="text-2xl font-black text-white mb-6 text-center">Join the Party!</h2>
+          <h2 className="text-2xl font-black text-white mb-6 text-center">
+            {lang === 'fr' ? 'Rejoindre la Fête!' : 'Join the Party!'}
+          </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-gray-300 font-semibold mb-2 text-lg">
-                Your name (parent):
+                {lang === 'fr' ? 'Votre prénom (parent):' : 'Your name (parent):'}
               </label>
               <input
                 type="text"
                 value={parentName}
                 onChange={e => setParentName(e.target.value)}
-                placeholder="e.g. Sarah"
+                placeholder={lang === 'fr' ? 'ex. Sarah' : 'e.g. Sarah'}
                 className="w-full bg-white/10 border border-white/20 rounded-xl px-5 py-4 text-white text-xl outline-none focus:border-yellow-400 transition-colors"
                 autoFocus
               />
@@ -106,17 +112,19 @@ export default function Register({ onRegister }: Props) {
 
             <div>
               <label className="block text-gray-300 font-semibold mb-2 text-lg">
-                Your kid's name:
+                {lang === 'fr' ? "Prénom de votre enfant:" : "Your kid's name:"}
               </label>
               <input
                 type="text"
                 value={kidName}
                 onChange={e => setKidName(e.target.value)}
-                placeholder="e.g. Emma"
+                placeholder={lang === 'fr' ? 'ex. Emma' : 'e.g. Emma'}
                 className="w-full bg-white/10 border border-white/20 rounded-xl px-5 py-4 text-white text-xl outline-none focus:border-yellow-400 transition-colors"
               />
               <p className="text-gray-500 text-sm mt-1">
-                You can't give stars/demerits to your own kid 😄
+                {lang === 'fr'
+                  ? "Vous ne pouvez pas donner des étoiles à votre propre enfant 😄"
+                  : "You can't give stars/demerits to your own kid 😄"}
               </p>
             </div>
 
@@ -129,13 +137,15 @@ export default function Register({ onRegister }: Props) {
               disabled={loading}
               className="w-full py-5 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black text-2xl uppercase tracking-wide transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(255,215,0,0.5)] disabled:opacity-50"
             >
-              {loading ? 'Joining...' : "🎉 LET'S PARTY!"}
+              {loading
+                ? (lang === 'fr' ? 'Inscription...' : 'Joining...')
+                : (lang === 'fr' ? "🎉 C'EST LA FÊTE!" : "🎉 LET'S PARTY!")}
             </button>
           </form>
         </div>
 
         <p className="text-center text-gray-600 text-sm mt-4">
-          No account needed — just jump in!
+          {lang === 'fr' ? 'Pas de compte nécessaire — plongez!' : 'No account needed — just jump in!'}
         </p>
       </div>
     </div>

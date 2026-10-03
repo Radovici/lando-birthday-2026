@@ -2,10 +2,12 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import Image from 'next/image';
+import { Lang } from '@/lib/types';
 
 interface Props {
   currentUser: { name: string; kidName: string } | null;
   tvMode: boolean;
+  lang: Lang;
 }
 
 interface Photo {
@@ -14,7 +16,7 @@ interface Photo {
   uploader?: string;
 }
 
-export default function PhotoAlbum({ currentUser, tvMode }: Props) {
+export default function PhotoAlbum({ currentUser, tvMode, lang }: Props) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [uploading, setUploading] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -55,14 +57,14 @@ export default function PhotoAlbum({ currentUser, tvMode }: Props) {
       if (res.ok) {
         const data = await res.json();
         setPhotos(prev => [{ url: data.url, uploadedAt: Date.now(), uploader: currentUser?.name }, ...prev]);
-        setFlash('Photo uploaded! 📸');
+        setFlash(lang === 'fr' ? 'Photo ajoutée! 📸' : 'Photo uploaded! 📸');
         setTimeout(() => setFlash(null), 2000);
       } else {
-        setFlash('Upload failed. Try again! 😅');
+        setFlash(lang === 'fr' ? 'Erreur — réessayez! 😅' : 'Upload failed. Try again! 😅');
         setTimeout(() => setFlash(null), 3000);
       }
     } catch {
-      setFlash('Upload failed. Try again! 😅');
+      setFlash(lang === 'fr' ? 'Erreur — réessayez! 😅' : 'Upload failed. Try again! 😅');
       setTimeout(() => setFlash(null), 3000);
     } finally {
       setUploading(false);
@@ -81,10 +83,10 @@ export default function PhotoAlbum({ currentUser, tvMode }: Props) {
       )}
 
       <h2 className="text-3xl font-black text-center text-white mb-2 uppercase tracking-wide">
-        📸 Party Photos
+        {lang === 'fr' ? '📸 Photos de fête' : '📸 Party Photos'}
       </h2>
       <p className="text-center text-gray-400 mb-6">
-        Share your party moments!
+        {lang === 'fr' ? 'Partagez vos moments de fête!' : 'Share your party moments!'}
       </p>
 
       {/* Upload button */}
@@ -107,10 +109,14 @@ export default function PhotoAlbum({ currentUser, tvMode }: Props) {
                 : 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:scale-105 hover:shadow-[0_0_30px_rgba(236,72,153,0.5)]'
             }`}
           >
-            {uploading ? '⏳ Uploading...' : '📷 Add a Photo!'}
+            {uploading
+              ? (lang === 'fr' ? '⏳ Envoi...' : '⏳ Uploading...')
+              : (lang === 'fr' ? '📷 Ajouter une photo!' : '📷 Add a Photo!')}
           </label>
           {!currentUser && (
-            <p className="text-yellow-400 text-sm mt-2">Register first to upload photos</p>
+            <p className="text-yellow-400 text-sm mt-2">
+              {lang === 'fr' ? "Inscrivez-vous d'abord pour ajouter des photos" : 'Register first to upload photos'}
+            </p>
           )}
         </div>
       )}
@@ -119,8 +125,12 @@ export default function PhotoAlbum({ currentUser, tvMode }: Props) {
       {displayPhotos.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-8xl mb-4">📷</div>
-          <p className="text-gray-500 text-xl">No photos yet!</p>
-          <p className="text-gray-600">Be the first to capture the fun!</p>
+          <p className="text-gray-500 text-xl">
+            {lang === 'fr' ? 'Aucune photo encore!' : 'No photos yet!'}
+          </p>
+          <p className="text-gray-600">
+            {lang === 'fr' ? 'Soyez le premier à capturer les moments!' : 'Be the first to capture the fun!'}
+          </p>
         </div>
       ) : (
         <div className={`grid gap-3 ${tvMode ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-3'}`}>
@@ -141,7 +151,7 @@ export default function PhotoAlbum({ currentUser, tvMode }: Props) {
               />
               {index === 0 && (
                 <div className="absolute top-2 left-2 bg-yellow-400 text-black text-xs font-black px-2 py-1 rounded-full">
-                  NEW!
+                  {lang === 'fr' ? 'NOUVEAU!' : 'NEW!'}
                 </div>
               )}
             </div>
@@ -151,7 +161,7 @@ export default function PhotoAlbum({ currentUser, tvMode }: Props) {
 
       {photos.length > (tvMode ? 6 : 20) && (
         <div className="text-center mt-6 text-gray-500">
-          +{photos.length - (tvMode ? 6 : 20)} more photos
+          +{photos.length - (tvMode ? 6 : 20)} {lang === 'fr' ? 'autres photos' : 'more photos'}
         </div>
       )}
     </div>

@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Player, STAR_REASONS, DEMERIT_REASONS } from '@/lib/types';
+import { Player, STAR_REASONS, DEMERIT_REASONS, STAR_REASONS_FR, DEMERIT_REASONS_FR, Lang } from '@/lib/types';
 
 interface Props {
   currentUser: { name: string; kidName: string } | null;
+  lang: Lang;
 }
 
 type ConfettiPiece = { id: number; left: number; color: string; delay: number; duration: number };
@@ -31,7 +32,7 @@ function Confetti({ pieces }: { pieces: ConfettiPiece[] }) {
   );
 }
 
-export default function BehaviorTracker({ currentUser }: Props) {
+export default function BehaviorTracker({ currentUser, lang }: Props) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [mode, setMode] = useState<'star' | 'demerit'>('star');
@@ -58,7 +59,6 @@ export default function BehaviorTracker({ currentUser }: Props) {
   }, [fetchPlayers]);
 
   const canGiveTo = (player: Player) => {
-    // Can't give to your own kid
     if (!currentUser) return true;
     return player.name.toLowerCase() !== currentUser.kidName.toLowerCase();
   };
@@ -78,21 +78,27 @@ export default function BehaviorTracker({ currentUser }: Props) {
   const submitEvent = async () => {
     if (!selectedPlayer || !selectedReason || !currentUser) return;
     if (!canGiveTo(selectedPlayer)) {
-      alert("You can't give stars/demerits to your own kid! 😄");
+      alert(lang === 'fr'
+        ? "Vous ne pouvez pas donner des étoiles à votre propre enfant! 😄"
+        : "You can't give stars/demerits to your own kid! 😄");
       return;
     }
 
     setLoading(true);
     try {
-      // Insert event
+      // Store reason in English so it's consistent in DB
+      const reasons = mode === 'star' ? STAR_REASONS : DEMERIT_REASONS;
+      const reasonsFR = mode === 'star' ? STAR_REASONS_FR : DEMERIT_REASONS_FR;
+      const reasonIndex = (lang === 'fr' ? reasonsFR : reasons).indexOf(selectedReason);
+      const dbReason = reasonIndex >= 0 ? reasons[reasonIndex] : selectedReason;
+
       await supabase.from('lando_party_events').insert({
         player_id: selectedPlayer.id,
         given_by: currentUser.name,
         type: mode,
-        reason: selectedReason,
+        reason: dbReason,
       });
 
-      // Update player stats
       if (mode === 'star') {
         await supabase.from('lando_party_players').update({
           stars: selectedPlayer.stars + 1,
@@ -114,7 +120,9 @@ export default function BehaviorTracker({ currentUser }: Props) {
     }
   };
 
-  const reasons = mode === 'star' ? STAR_REASONS : DEMERIT_REASONS;
+  const reasons = lang === 'fr'
+    ? (mode === 'star' ? STAR_REASONS_FR : DEMERIT_REASONS_FR)
+    : (mode === 'star' ? STAR_REASONS : DEMERIT_REASONS);
 
   return (
     <div className="p-4 pb-24 relative">
@@ -125,20 +133,26 @@ export default function BehaviorTracker({ currentUser }: Props) {
         <div className={`fixed top-16 left-1/2 -translate-x-1/2 z-50 text-black font-black text-2xl px-8 py-4 rounded-full shadow-2xl animate-bounce ${
           flash.type === 'star' ? 'bg-yellow-400' : 'bg-red-400'
         }`}>
-          {flash.type === 'star' ? `⭐ STAR for ${flash.name}!` : `😈 Demerit for ${flash.name}!`}
+          {flash.type === 'star'
+            ? (lang === 'fr' ? `⭐ ÉTOILE pour ${flash.name}!` : `⭐ STAR for ${flash.name}!`)
+            : (lang === 'fr' ? `😈 Point négatif pour ${flash.name}!` : `😈 Demerit for ${flash.name}!`)}
         </div>
       )}
 
       <h2 className="text-3xl font-black text-center text-white mb-2 uppercase tracking-wide">
-        Cooperation Tournament
+        {lang === 'fr' ? 'Tournoi de Coopération' : 'Cooperation Tournament'}
       </h2>
       <p className="text-center text-gray-400 mb-6">
-        Give stars or demerits to any kid <em>except your own!</em>
+        {lang === 'fr'
+          ? "Donnez des étoiles ou des points négatifs à n'importe quel enfant sauf le vôtre!"
+          : 'Give stars or demerits to any kid except your own!'}
       </p>
 
       {!currentUser && (
         <div className="text-center text-yellow-400 text-xl mb-4 p-4 bg-yellow-400/10 rounded-xl">
-          Please register first to give stars/demerits! 👆
+          {lang === 'fr'
+            ? 'Veuillez vous inscrire pour donner des étoiles/points négatifs! 👆'
+            : 'Please register first to give stars/demerits! 👆'}
         </div>
       )}
 
@@ -152,7 +166,7 @@ export default function BehaviorTracker({ currentUser }: Props) {
               : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
           }`}
         >
-          ⭐ STAR
+          {lang === 'fr' ? '⭐ ÉTOILE' : '⭐ STAR'}
         </button>
         <button
           onClick={() => { setMode('demerit'); setSelectedReason(''); }}
@@ -162,15 +176,19 @@ export default function BehaviorTracker({ currentUser }: Props) {
               : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
           }`}
         >
-          😈 DEMERIT
+          {lang === 'fr' ? '😈 NÉGATIF' : '😈 DEMERIT'}
         </button>
       </div>
 
       {/* Player selection */}
       <div className="mb-6">
-        <h3 className="text-xl font-bold text-gray-300 mb-3">Pick a kid:</h3>
+        <h3 className="text-xl font-bold text-gray-300 mb-3">
+          {lang === 'fr' ? 'Choisir un enfant:' : 'Pick a kid:'}
+        </h3>
         {players.length === 0 ? (
-          <div className="text-gray-500 text-center py-8">No kids registered yet...</div>
+          <div className="text-gray-500 text-center py-8">
+            {lang === 'fr' ? 'Aucun enfant inscrit...' : 'No kids registered yet...'}
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {players.map((player) => {
@@ -197,7 +215,9 @@ export default function BehaviorTracker({ currentUser }: Props) {
                     {player.demerits > 0 && <span className="text-red-400 text-sm">😈 {player.demerits}</span>}
                   </div>
                   {!canGive && (
-                    <div className="text-xs text-gray-500 mt-1">Your kid</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {lang === 'fr' ? 'Votre enfant' : 'Your kid'}
+                    </div>
                   )}
                 </button>
               );
@@ -210,7 +230,9 @@ export default function BehaviorTracker({ currentUser }: Props) {
       {selectedPlayer && (
         <div className="mb-6">
           <h3 className="text-xl font-bold text-gray-300 mb-3">
-            {mode === 'star' ? '⭐ Why a star?' : '😈 What happened?'}
+            {mode === 'star'
+              ? (lang === 'fr' ? '⭐ Pourquoi une étoile?' : '⭐ Why a star?')
+              : (lang === 'fr' ? "😈 Qu'est-ce qui s'est passé?" : '😈 What happened?')}
           </h3>
           <div className="grid grid-cols-1 gap-2">
             {reasons.map((reason) => (
@@ -244,17 +266,20 @@ export default function BehaviorTracker({ currentUser }: Props) {
                 : 'bg-red-500 text-white hover:bg-red-400 shadow-[0_0_30px_rgba(255,68,68,0.6)]'
             } ${loading ? 'opacity-50' : ''}`}
           >
-            {loading ? 'Submitting...' : (mode === 'star'
-              ? `⭐ Give Star to ${selectedPlayer.name}!`
-              : `😈 Demerit for ${selectedPlayer.name}!`
-            )}
+            {loading
+              ? (lang === 'fr' ? 'Envoi...' : 'Submitting...')
+              : mode === 'star'
+              ? (lang === 'fr' ? `⭐ Étoile pour ${selectedPlayer.name}!` : `⭐ Give Star to ${selectedPlayer.name}!`)
+              : (lang === 'fr' ? `😈 Point négatif pour ${selectedPlayer.name}!` : `😈 Demerit for ${selectedPlayer.name}!`)}
           </button>
         </div>
       )}
 
       {/* Leaderboard */}
       <div>
-        <h3 className="text-2xl font-black text-center text-white mb-4 mt-6">🏆 Standings</h3>
+        <h3 className="text-2xl font-black text-center text-white mb-4 mt-6">
+          {lang === 'fr' ? '🏆 Classement' : '🏆 Standings'}
+        </h3>
         {players.map((player, index) => (
           <div
             key={player.id}
