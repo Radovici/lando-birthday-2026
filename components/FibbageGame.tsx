@@ -286,19 +286,22 @@ export default function FibbageGame({ currentUser, lang }: Props) {
                 value={myAnswer}
                 onChange={e => setMyAnswer(e.target.value)}
                 placeholder={lang === 'fr' ? 'Tape ta réponse ici...' : 'Type your answer here...'}
-                className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white text-xl resize-none outline-none focus:border-purple-400 transition-colors mb-4"
+                className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white resize-none outline-none focus:border-purple-400 transition-colors mb-4"
                 rows={3}
                 maxLength={80}
+                style={{ fontSize: '16px' }}
               />
-              <button
-                onClick={submitAnswer}
-                disabled={!myAnswer.trim() || loading}
-                className="w-full py-5 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-black text-xl transition-all disabled:opacity-50"
-              >
-                {loading
-                  ? (lang === 'fr' ? 'Envoi...' : 'Submitting...')
-                  : (lang === 'fr' ? '✅ Soumettre ma réponse!' : '✅ Submit My Answer!')}
-              </button>
+              <div className="sticky bottom-4 z-10">
+                <button
+                  onClick={submitAnswer}
+                  disabled={!myAnswer.trim() || loading}
+                  className="w-full py-5 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-black text-xl transition-all disabled:opacity-50"
+                >
+                  {loading
+                    ? (lang === 'fr' ? 'Envoi...' : 'Submitting...')
+                    : (lang === 'fr' ? '✅ Soumettre ma réponse!' : '✅ Submit My Answer!')}
+                </button>
+              </div>
             </div>
           ) : submitted ? (
             <div className="text-center">

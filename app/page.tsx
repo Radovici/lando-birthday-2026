@@ -20,51 +20,52 @@ interface CurrentUser {
   kidName: string;
 }
 
-const TABS_FR: { id: Tab; label: string; emoji: string; short: string }[] = [
-  { id: 'hub', label: 'Accueil', emoji: '🏠', short: 'Accueil' },
-  { id: 'fibbage', label: 'Fibbage', emoji: '🎭', short: 'Fibbage' },
-  { id: 'quiplash', label: 'Quiplash', emoji: '💬', short: 'Quiz' },
-  { id: 'behavior', label: 'Étoiles', emoji: '⭐', short: 'Étoiles' },
-  { id: 'olympics', label: 'JO', emoji: '🏆', short: 'JO' },
-  { id: 'photos', label: 'Photos', emoji: '📸', short: 'Photos' },
-  { id: 'chat', label: 'Landoosh', emoji: '🤖', short: 'IA' },
+// 6 game tabs (hub accessible via title tap)
+const GAME_TABS_FR: { id: Tab; label: string; emoji: string; short: string }[] = [
+  { id: 'fibbage',   label: 'Fibbage',       emoji: '🎭', short: 'Fibbage'    },
+  { id: 'quiplash',  label: 'Quiplash',       emoji: '💬', short: 'Quiplash'   },
+  { id: 'chat',      label: 'Landoosh',       emoji: '🤖', short: 'Landoosh'   },
+  { id: 'behavior',  label: 'Comportement',   emoji: '⭐', short: 'Étoiles'    },
+  { id: 'olympics',  label: 'Olympiades',     emoji: '🏅', short: 'Olympiades' },
+  { id: 'photos',    label: 'Photos',         emoji: '📸', short: 'Photos'     },
 ];
 
-const TABS_EN: { id: Tab; label: string; emoji: string; short: string }[] = [
-  { id: 'hub', label: 'Party Hub', emoji: '🏠', short: 'Hub' },
-  { id: 'fibbage', label: 'Fibbage', emoji: '🎭', short: 'Game' },
-  { id: 'quiplash', label: 'Quiplash', emoji: '💬', short: 'Quiz' },
-  { id: 'behavior', label: 'Stars', emoji: '⭐', short: 'Stars' },
-  { id: 'olympics', label: 'Olympics', emoji: '🏆', short: 'Scores' },
-  { id: 'photos', label: 'Photos', emoji: '📸', short: 'Pics' },
-  { id: 'chat', label: 'Landoosh', emoji: '🤖', short: 'AI' },
+const GAME_TABS_EN: { id: Tab; label: string; emoji: string; short: string }[] = [
+  { id: 'fibbage',   label: 'Fibbage',    emoji: '🎭', short: 'Fibbage'   },
+  { id: 'quiplash',  label: 'Quiplash',   emoji: '💬', short: 'Quiplash'  },
+  { id: 'chat',      label: 'Landoosh',   emoji: '🤖', short: 'Landoosh'  },
+  { id: 'behavior',  label: 'Behavior',   emoji: '⭐', short: 'Stars'     },
+  { id: 'olympics',  label: 'Olympics',   emoji: '🏅', short: 'Olympics'  },
+  { id: 'photos',    label: 'Photos',     emoji: '📸', short: 'Photos'    },
 ];
 
 function PartyApp() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>('hub');
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [showRegister, setShowRegister] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [lang, setLang] = useState<Lang>('fr');
   const tvMode = searchParams.get('tv') === '1';
 
   useEffect(() => {
-    // Restore user from localStorage
     const stored = localStorage.getItem('lando-party-user');
     if (stored) {
       try { setCurrentUser(JSON.parse(stored)); } catch { /* ignore */ }
     }
-    // Restore lang preference (default FR)
     const storedLang = localStorage.getItem('lando-party-lang') as Lang | null;
-    if (storedLang === 'en' || storedLang === 'fr') {
-      setLang(storedLang);
-    }
+    if (storedLang === 'en' || storedLang === 'fr') setLang(storedLang);
+    setLoaded(true);
   }, []);
 
   const handleRegister = (user: CurrentUser) => {
     setCurrentUser(user);
     localStorage.setItem('lando-party-user', JSON.stringify(user));
-    setShowRegister(false);
+    setActiveTab('hub');
+  };
+
+  const handleChangeUser = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('lando-party-user');
   };
 
   const toggleLang = () => {
@@ -73,109 +74,97 @@ function PartyApp() {
     localStorage.setItem('lando-party-lang', next);
   };
 
-  const TABS = lang === 'fr' ? TABS_FR : TABS_EN;
+  const GAME_TABS = lang === 'fr' ? GAME_TABS_FR : GAME_TABS_EN;
 
-  if (showRegister) {
-    return <Register onRegister={handleRegister} lang={lang} />;
+  // Loading — wait for localStorage before deciding which screen to show
+  if (!loaded) {
+    return (
+      <div className="min-h-dvh flex items-center justify-center" style={{ background: '#0a0a1a' }}>
+        <div className="text-white text-5xl animate-pulse">🎂</div>
+      </div>
+    );
   }
 
+  // TV mode — just the big scoreboard
+  if (tvMode) {
+    return (
+      <div style={{ background: '#0a0a1a' }}>
+        <MainHub tvMode={true} lang={lang} />
+      </div>
+    );
+  }
+
+  // No user yet → show simplified join landing
+  if (!currentUser) {
+    return <Register onRegister={handleRegister} lang={lang} onToggleLang={toggleLang} />;
+  }
+
+  // Main tabbed app
   return (
-    <div className={`min-h-screen ${tvMode ? 'tv-mode' : ''}`} style={{ background: '#0a0a1a' }}>
-      {/* TV mode */}
-      {tvMode ? (
-        <div className="pb-4">
-          <MainHub tvMode={true} lang={lang} />
+    <div style={{ background: '#0a0a1a' }} className="min-h-dvh">
+      {/* Slim top bar */}
+      <div className="sticky top-0 z-40 bg-gray-950/95 backdrop-blur border-b border-white/10">
+        <div className="flex items-center justify-between px-4 py-2">
+          {/* Title — tap to go back to live scoreboard */}
+          <button
+            onClick={() => setActiveTab('hub')}
+            className="text-base font-black text-yellow-400 min-h-[44px] flex items-center"
+          >
+            🎈 Lando 7!
+          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleLang}
+              className="text-sm border border-white/20 rounded-lg px-3 font-bold text-white min-h-[44px]"
+            >
+              {lang === 'fr' ? '🇫🇷 FR' : '🇺🇸 EN'}
+            </button>
+            <button
+              onClick={handleChangeUser}
+              className="text-sm text-gray-400 border border-gray-600 rounded-lg px-3 min-h-[44px]"
+            >
+              {currentUser.name} 👤
+            </button>
+          </div>
         </div>
-      ) : (
-        <>
-          {/* Phone: top bar */}
-          <div className="sticky top-0 z-40 bg-gray-950/95 backdrop-blur border-b border-white/10">
-            <div className="flex items-center justify-between px-4 py-3">
-              <div>
-                <h1 className="text-lg font-black text-yellow-400 leading-tight">🎈 LANDO 7!</h1>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Language toggle */}
-                <button
-                  onClick={toggleLang}
-                  className="text-sm border border-white/20 rounded-lg px-3 py-1 text-white hover:border-white/40 transition-colors font-bold"
-                  title={lang === 'fr' ? 'Switch to English' : 'Passer en français'}
-                >
-                  {lang === 'fr' ? '🇫🇷 FR' : '🇺🇸 EN'}
-                </button>
+      </div>
 
-                {/* Register / user button */}
-                {currentUser ? (
-                  <button
-                    onClick={() => setShowRegister(true)}
-                    className="text-sm text-gray-400 border border-gray-600 rounded-lg px-3 py-1 hover:border-gray-400"
-                  >
-                    {currentUser.name} 👤
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setShowRegister(true)}
-                    className="text-sm bg-yellow-400 text-black font-bold rounded-lg px-4 py-2"
-                  >
-                    {lang === 'fr' ? 'Rejoindre! 🎉' : 'Join Party! 🎉'}
-                  </button>
-                )}
-              </div>
-            </div>
+      {/* Tab content */}
+      <div className="pb-[72px]">
+        {activeTab === 'hub'      && <MainHub tvMode={false} lang={lang} />}
+        {activeTab === 'fibbage'  && <FibbageGame currentUser={currentUser} lang={lang} />}
+        {activeTab === 'quiplash' && <QuiplashGame currentUser={currentUser} lang={lang} />}
+        {activeTab === 'chat'     && <LandooshChat currentUser={currentUser} lang={lang} />}
+        {activeTab === 'behavior' && <BehaviorTracker currentUser={currentUser} lang={lang} />}
+        {activeTab === 'olympics' && <OlympicsScoreboard currentUser={currentUser} lang={lang} />}
+        {activeTab === 'photos'   && <PhotoAlbum currentUser={currentUser} tvMode={false} lang={lang} />}
+      </div>
 
-            {/* Tab navigation */}
-            <div className="flex overflow-x-auto pb-1 px-2 gap-1 scrollbar-hide">
-              {TABS.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`tab-btn flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl font-bold text-xs transition-all ${
-                    activeTab === tab.id
-                      ? 'bg-yellow-400/20 text-yellow-400 border border-yellow-400/50 active'
-                      : 'text-gray-400 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  <span className="text-lg">{tab.emoji}</span>
-                  <span>{tab.short}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tab content */}
-          <div className="pb-32">
-            {activeTab === 'hub' && <MainHub tvMode={false} lang={lang} />}
-            {activeTab === 'fibbage' && <FibbageGame currentUser={currentUser} lang={lang} />}
-            {activeTab === 'quiplash' && <QuiplashGame currentUser={currentUser} lang={lang} />}
-            {activeTab === 'behavior' && <BehaviorTracker currentUser={currentUser} lang={lang} />}
-            {activeTab === 'olympics' && <OlympicsScoreboard currentUser={currentUser} lang={lang} />}
-            {activeTab === 'photos' && <PhotoAlbum currentUser={currentUser} tvMode={false} lang={lang} />}
-            {activeTab === 'chat' && <LandooshChat currentUser={currentUser} lang={lang} />}
-          </div>
-
-          {/* Bottom nav */}
-          <div className="fixed bottom-0 left-0 right-0 z-40 bg-gray-950/95 backdrop-blur border-t border-white/10">
-            <div className="flex justify-around py-2 px-1">
-              {TABS.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex flex-col items-center gap-1 p-1 rounded-xl flex-1 transition-all ${
-                    activeTab === tab.id
-                      ? 'text-yellow-400'
-                      : 'text-gray-500 hover:text-gray-300'
-                  }`}
-                >
-                  <span className={`text-lg ${activeTab === tab.id ? 'scale-125' : ''} transition-transform`}>
-                    {tab.emoji}
-                  </span>
-                  <span className="text-xs font-bold leading-tight">{tab.short}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
+      {/* Bottom nav — 6 game tabs, large tap targets */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 bg-gray-950/95 backdrop-blur border-t border-white/10"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <div className="flex justify-around">
+          {GAME_TABS.map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex flex-col items-center justify-center gap-[2px] flex-1 min-h-[56px] py-1 transition-colors ${
+                  isActive ? 'text-yellow-400' : 'text-gray-500'
+                }`}
+              >
+                <span className={`text-xl leading-none transition-transform ${isActive ? 'scale-125' : ''}`}>
+                  {tab.emoji}
+                </span>
+                <span className="text-[10px] font-bold leading-tight">{tab.short}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -183,8 +172,8 @@ function PartyApp() {
 export default function Home() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a1a' }}>
-        <div className="text-white text-4xl animate-pulse">🎂 Chargement...</div>
+      <div className="min-h-dvh flex items-center justify-center" style={{ background: '#0a0a1a' }}>
+        <div className="text-white text-5xl animate-pulse">🎂</div>
       </div>
     }>
       <PartyApp />

@@ -261,13 +261,14 @@ export default function LandooshChat({ currentUser, lang }: Props) {
                 ? (lang === 'fr' ? `Dites quelque chose, ${currentUser.name}!` : `Say something, ${currentUser.name}!`)
                 : (lang === 'fr' ? 'Tapez un message...' : 'Type a message...')
             }
-            className="flex-1 bg-white/10 border border-white/20 rounded-xl px-5 py-4 text-white text-lg outline-none focus:border-orange-400 transition-colors"
+            className="flex-1 bg-white/10 border border-white/20 rounded-xl px-5 py-4 text-white outline-none focus:border-orange-400 transition-colors"
+            style={{ fontSize: '16px' }}
             maxLength={200}
           />
           <button
             onClick={sendMessage}
             disabled={!input.trim() || loading}
-            className="bg-gradient-to-r from-orange-500 to-pink-500 text-white font-black text-xl px-6 py-4 rounded-xl disabled:opacity-50 hover:scale-105 transition-all"
+            className="bg-gradient-to-r from-orange-500 to-pink-500 text-white font-black text-xl px-6 rounded-xl disabled:opacity-50 transition-all min-h-[52px]"
           >
             🚀
           </button>
