@@ -81,12 +81,18 @@ export default function QuiplashGame({ currentUser, lang }: Props) {
 
   // --- Host controls ---
   const setPhase = async (newPhase: string, promptId?: number) => {
-    await supabase.from('lando_party_game_state').upsert({
+    const { error } = await supabase.from('lando_party_game_state').upsert({
       id: 'quiplash',
       phase: newPhase,
       current_question_id: promptId ?? currentPromptId,
+      host_message: null,
       updated_at: new Date().toISOString(),
     });
+    if (error) {
+      console.error('Quiplash setPhase error:', error);
+    }
+    // Fetch immediately — don't rely solely on Realtime to reflect the change
+    await fetchRemoteState();
   };
 
   const startGame = () => setPhase('answering', 1);
@@ -174,10 +180,10 @@ export default function QuiplashGame({ currentUser, lang }: Props) {
           : 'Complete the sentence funnily and vote for the best!'}
       </p>
 
-      {/* Landoosh MC indicator */}
+      {/* Host controls info */}
       <div className="text-center mb-4">
-        <span className="inline-flex items-center gap-2 bg-orange-500/20 border border-orange-500/40 text-orange-300 text-sm px-3 py-1 rounded-full">
-          🎭 {lang === 'fr' ? 'Landoosh contrôle le jeu via le chat' : 'Landoosh controls the game via chat'}
+        <span className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-500/40 text-blue-300 text-sm px-3 py-1 rounded-full">
+          🎮 {lang === 'fr' ? 'Eldar contrôle le rythme via les boutons HOST' : 'Eldar controls the pace via HOST buttons'}
         </span>
       </div>
 
@@ -216,15 +222,21 @@ export default function QuiplashGame({ currentUser, lang }: Props) {
           </h3>
           <p className="text-gray-400 mb-8 max-w-md mx-auto">
             {lang === 'fr'
-              ? "Demandez à Landoosh de lancer le jeu, ou utilisez le bouton ci-dessous."
-              : "Ask Landoosh in the chat to start the game, or use the button below."}
+              ? "Eldar, appuie sur le bouton pour lancer le jeu!"
+              : "Eldar, press the button to start the game!"}
           </p>
-          <button
-            onClick={startGame}
-            className="bg-teal-500 hover:bg-teal-400 text-white font-black text-2xl px-12 py-5 rounded-2xl transition-all hover:scale-105"
-          >
-            {lang === 'fr' ? '🎮 COMMENCER LE JEU!' : '🎮 START GAME!'}
-          </button>
+          {/* HOST CONTROL — prominent start button */}
+          <div className="border-2 border-dashed border-teal-400/60 rounded-2xl p-6 mb-4">
+            <div className="text-xs font-bold text-teal-400 uppercase tracking-widest mb-3">
+              🎮 {lang === 'fr' ? 'Contrôle HOST (Eldar)' : 'HOST Control (Eldar)'}
+            </div>
+            <button
+              onClick={startGame}
+              className="bg-teal-500 hover:bg-teal-400 text-white font-black text-2xl px-12 py-5 rounded-2xl transition-all hover:scale-105 w-full"
+            >
+              {lang === 'fr' ? '▶ Démarrer / Start' : '▶ Start Game'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -290,16 +302,17 @@ export default function QuiplashGame({ currentUser, lang }: Props) {
           ) : null}
 
           {/* Host controls */}
-          <div className="mt-8 pt-6 border-t border-white/10">
-            <p className="text-center text-gray-500 text-sm mb-3">
-              {lang === 'fr' ? 'Animateur (Eldar / Landoosh):' : 'Host (Eldar / Landoosh):'}
+          <div className="mt-8 border-2 border-dashed border-green-500/50 rounded-2xl p-4">
+            <p className="text-center text-green-400 text-xs font-bold uppercase tracking-widest mb-3">
+              🎮 {lang === 'fr' ? 'Contrôle HOST (Eldar)' : 'HOST Control (Eldar)'}
             </p>
             <button
               onClick={showVoting}
-              disabled={answers.length < 2}
-              className="w-full py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black text-lg disabled:opacity-40"
+              className="w-full py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black text-lg"
             >
-              {lang === 'fr' ? '📺 Afficher les réponses — voter!' : '📺 Show Answers — Start Voting!'}
+              {lang === 'fr'
+                ? `📊 Voter maintenant / Vote now${answers.length > 0 ? ` (${answers.length} réponse${answers.length !== 1 ? 's' : ''})` : ''}`
+                : `📊 Vote Now${answers.length > 0 ? ` (${answers.length} answer${answers.length !== 1 ? 's' : ''})` : ''}`}
             </button>
           </div>
         </div>
@@ -346,9 +359,9 @@ export default function QuiplashGame({ currentUser, lang }: Props) {
           </div>
 
           {/* Host controls */}
-          <div className="pt-6 border-t border-white/10">
-            <p className="text-center text-gray-500 text-sm mb-3">
-              {lang === 'fr' ? 'Animateur (Eldar / Landoosh):' : 'Host (Eldar / Landoosh):'}
+          <div className="pt-4 border-2 border-dashed border-orange-500/50 rounded-2xl p-4">
+            <p className="text-center text-orange-400 text-xs font-bold uppercase tracking-widest mb-3">
+              🎮 {lang === 'fr' ? 'Contrôle HOST (Eldar)' : 'HOST Control (Eldar)'}
             </p>
             <div className="flex gap-3">
               <button
@@ -361,7 +374,7 @@ export default function QuiplashGame({ currentUser, lang }: Props) {
                 onClick={nextPrompt}
                 className="flex-1 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black"
               >
-                {lang === 'fr' ? '➡️ Suivant' : '➡️ Next'}
+                {lang === 'fr' ? '⏭ Suivant' : '⏭ Next'}
               </button>
             </div>
           </div>

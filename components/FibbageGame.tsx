@@ -83,12 +83,18 @@ export default function FibbageGame({ currentUser, lang }: Props) {
 
   // --- Host controls (write to game_state) ---
   const setPhase = async (newPhase: string, questionId?: number) => {
-    await supabase.from('lando_party_game_state').upsert({
+    const { error } = await supabase.from('lando_party_game_state').upsert({
       id: 'fibbage',
       phase: newPhase,
       current_question_id: questionId ?? currentQuestionId,
+      host_message: null,
       updated_at: new Date().toISOString(),
     });
+    if (error) {
+      console.error('Fibbage setPhase error:', error);
+    }
+    // Fetch immediately — don't rely solely on Realtime to reflect the change
+    await fetchRemoteState();
   };
 
   const startGame = () => setPhase('answering', 1);
@@ -183,10 +189,10 @@ export default function FibbageGame({ currentUser, lang }: Props) {
           : 'Submit fake answers to fool others. Find the real one to win!'}
       </p>
 
-      {/* Landoosh MC indicator */}
+      {/* Host controls info */}
       <div className="text-center mb-4">
-        <span className="inline-flex items-center gap-2 bg-orange-500/20 border border-orange-500/40 text-orange-300 text-sm px-3 py-1 rounded-full">
-          🎭 {lang === 'fr' ? 'Landoosh contrôle le jeu via le chat' : 'Landoosh controls the game via chat'}
+        <span className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-500/40 text-blue-300 text-sm px-3 py-1 rounded-full">
+          🎮 {lang === 'fr' ? 'Eldar contrôle le rythme via les boutons HOST' : 'Eldar controls the pace via HOST buttons'}
         </span>
       </div>
 
@@ -225,15 +231,21 @@ export default function FibbageGame({ currentUser, lang }: Props) {
           </h3>
           <p className="text-gray-400 mb-8 max-w-md mx-auto">
             {lang === 'fr'
-              ? "Demandez à Landoosh dans le chat de lancer le jeu, ou utilisez le bouton ci-dessous."
-              : "Ask Landoosh in the chat to start the game, or use the button below."}
+              ? "Eldar, appuie sur le bouton pour lancer le jeu!"
+              : "Eldar, press the button to start the game!"}
           </p>
-          <button
-            onClick={startGame}
-            className="bg-purple-500 hover:bg-purple-400 text-white font-black text-2xl px-12 py-5 rounded-2xl transition-all hover:scale-105"
-          >
-            {lang === 'fr' ? '🎮 COMMENCER!' : '🎮 START GAME!'}
-          </button>
+          {/* HOST CONTROL — prominent start button */}
+          <div className="border-2 border-dashed border-purple-400/60 rounded-2xl p-6 mb-4">
+            <div className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-3">
+              🎮 {lang === 'fr' ? 'Contrôle HOST (Eldar)' : 'HOST Control (Eldar)'}
+            </div>
+            <button
+              onClick={startGame}
+              className="bg-purple-500 hover:bg-purple-400 text-white font-black text-2xl px-12 py-5 rounded-2xl transition-all hover:scale-105 w-full"
+            >
+              {lang === 'fr' ? '▶ Démarrer / Start' : '▶ Start Game'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -307,15 +319,15 @@ export default function FibbageGame({ currentUser, lang }: Props) {
           ) : null}
 
           {/* Host controls */}
-          <div className="mt-8 pt-6 border-t border-white/10">
-            <p className="text-center text-gray-500 text-sm mb-3">
-              {lang === 'fr' ? 'Contrôles animateur (Eldar / Landoosh):' : 'Host controls (Eldar / Landoosh):'}
+          <div className="mt-8 pt-6 border-2 border-dashed border-green-500/50 rounded-2xl p-4">
+            <p className="text-center text-green-400 text-xs font-bold uppercase tracking-widest mb-3">
+              🎮 {lang === 'fr' ? 'Contrôle HOST (Eldar)' : 'HOST Control (Eldar)'}
             </p>
             <button
               onClick={showAnswers}
               className="w-full py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black text-lg"
             >
-              {lang === 'fr' ? '📺 Afficher les réponses — voter!' : '📺 Show All Answers — Start Voting!'}
+              {lang === 'fr' ? '📺 Afficher les réponses — voter!' : '📺 Show Answers — Start Voting!'}
             </button>
           </div>
         </div>
@@ -365,9 +377,9 @@ export default function FibbageGame({ currentUser, lang }: Props) {
           </div>
 
           {/* Host controls */}
-          <div className="pt-6 border-t border-white/10">
-            <p className="text-center text-gray-500 text-sm mb-3">
-              {lang === 'fr' ? 'Contrôles animateur:' : 'Host controls:'}
+          <div className="pt-6 border-2 border-dashed border-orange-500/50 rounded-2xl p-4">
+            <p className="text-center text-orange-400 text-xs font-bold uppercase tracking-widest mb-3">
+              🎮 {lang === 'fr' ? 'Contrôle HOST (Eldar)' : 'HOST Control (Eldar)'}
             </p>
             <div className="flex gap-3">
               <button
@@ -380,7 +392,7 @@ export default function FibbageGame({ currentUser, lang }: Props) {
                 onClick={nextQuestion}
                 className="flex-1 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black"
               >
-                {lang === 'fr' ? '➡️ Suivant' : '➡️ Next'}
+                {lang === 'fr' ? '⏭ Suivant' : '⏭ Next Q'}
               </button>
             </div>
           </div>
