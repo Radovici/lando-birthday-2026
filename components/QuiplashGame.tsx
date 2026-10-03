@@ -133,6 +133,8 @@ export default function QuiplashGame({ currentUser, lang }: Props) {
         setTimeout(() => setFlash(null), 2000);
         return;
       }
+      // Immediately refetch so the count updates — don't rely solely on Realtime
+      await fetchAnswers();
       setSubmitted(true);
       setFlash(lang === 'fr' ? 'Réponse soumise! 🎉' : 'Answer submitted! 🎉');
       setTimeout(() => setFlash(null), 2000);
