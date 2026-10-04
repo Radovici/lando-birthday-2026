@@ -4,6 +4,67 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { Lang } from '@/lib/types';
 
+// ── Keepsy-style upload preprocessing ──────────────────────────────────────
+// iPhone default format is HEIC. Large files must be recompressed. Both fail
+// silently without this layer.
+
+const ORIGINAL_MAX_BYTES = 3.6 * 1024 * 1024;
+const SAFE_CAP_BYTES = 3.9 * 1024 * 1024;
+const RECOMPRESS_STEPS = [
+  { edge: 4096, quality: 0.9 },
+  { edge: 3600, quality: 0.86 },
+  { edge: 3200, quality: 0.82 },
+  { edge: 2800, quality: 0.78 },
+  { edge: 2550, quality: 0.74 },
+];
+
+type Decoded = { source: CanvasImageSource; width: number; height: number; close?: () => void };
+
+async function decodeImage(file: File): Promise<Decoded | null> {
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (bitmap) return { source: bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close?.() };
+  return new Promise<Decoded | null>(resolve => {
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => resolve({ source: img, width: img.naturalWidth, height: img.naturalHeight, close: () => URL.revokeObjectURL(url) });
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+
+function drawToBlob(d: Decoded, edge: number, quality: number): Promise<Blob | null> {
+  let { width, height } = d;
+  if (width > edge || height > edge) {
+    const scale = Math.min(edge / width, edge / height);
+    width = Math.round(width * scale);
+    height = Math.round(height * scale);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return Promise.resolve(null);
+  ctx.drawImage(d.source, 0, 0, width, height);
+  return new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+}
+
+async function prepareForUpload(file: File): Promise<{ blob: Blob; name: string } | { error: string }> {
+  if (file.size <= ORIGINAL_MAX_BYTES) return { blob: file, name: file.name || 'photo.jpg' };
+  const decoded = await decodeImage(file);
+  if (!decoded) return { error: 'This browser cannot open that image format' };
+  try {
+    for (const step of RECOMPRESS_STEPS) {
+      const blob = await drawToBlob(decoded, step.edge, step.quality);
+      if (blob && blob.size <= SAFE_CAP_BYTES) {
+        return { blob, name: (file.name || 'photo').replace(/\.\w+$/, '') + '.jpg' };
+      }
+    }
+  } finally {
+    decoded.close?.();
+  }
+  return { error: 'Photo is too large to upload' };
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 interface Props {
   currentUser: { name: string; kidName: string } | null;
   tvMode: boolean;
@@ -41,34 +102,39 @@ export default function PhotoAlbum({ currentUser, tvMode, lang }: Props) {
   }, [fetchPhotos]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     setUploading(true);
+    const failures: string[] = [];
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('uploaderName', currentUser?.name || 'guest');
+      for (const file of files) {
+        const prepared = await prepareForUpload(file);
+        if ('error' in prepared) { failures.push(prepared.error); continue; }
 
-      const res = await fetch('/party/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
+        const formData = new FormData();
+        formData.append('file', prepared.blob, prepared.name);
+        formData.append('uploaderName', currentUser?.name || 'guest');
 
-      if (res.ok) {
-        const data = await res.json();
-        setPhotos(prev => [{ url: data.url, uploadedAt: Date.now(), uploader: currentUser?.name }, ...prev]);
-        setFlash(lang === 'fr' ? 'Photo ajoutée! 📸' : 'Photo uploaded! 📸');
-        setTimeout(() => setFlash(null), 2000);
-      } else {
-        setFlash(lang === 'fr' ? 'Erreur — réessayez! 😅' : 'Upload failed. Try again! 😅');
-        setTimeout(() => setFlash(null), 3000);
+        const res = await fetch('/party/api/upload', { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          setPhotos(prev => [{ url: data.url, uploadedAt: Date.now(), uploader: currentUser?.name }, ...prev]);
+        } else {
+          failures.push(file.name || 'photo');
+        }
       }
     } catch {
-      setFlash(lang === 'fr' ? 'Erreur — réessayez! 😅' : 'Upload failed. Try again! 😅');
-      setTimeout(() => setFlash(null), 3000);
+      failures.push('upload error');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+    if (failures.length === 0) {
+      setFlash(lang === 'fr' ? `${files.length > 1 ? files.length + ' photos ajoutées' : 'Photo ajoutée'}! 📸` : `${files.length > 1 ? files.length + ' photos' : 'Photo'} uploaded! 📸`);
+      setTimeout(() => setFlash(null), 2000);
+    } else {
+      setFlash(lang === 'fr' ? 'Erreur — réessayez! 😅' : 'Upload failed. Try again! 😅');
+      setTimeout(() => setFlash(null), 3000);
     }
   };
 
@@ -106,7 +172,8 @@ export default function PhotoAlbum({ currentUser, tvMode, lang }: Props) {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
+            multiple
             onChange={handleUpload}
             className="hidden"
             id="photo-upload"
