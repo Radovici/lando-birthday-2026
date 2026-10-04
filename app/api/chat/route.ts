@@ -36,23 +36,39 @@ export async function POST(req: NextRequest) {
     const langContext = langNote || '';
     const systemPrefix = userName ? `The party guest talking to you is ${userName}. ` : '';
 
-    const response = await fetch(`${AIDE_BACKEND_URL}/api/v1/service/agent`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${AIDE_SERVICE_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        bridge_slug: LANDOOSH_BRIDGE,
-        terminal_slug: LANDOOSH_TERMINAL,
-        messages: [
-          {
-            role: 'user',
-            content: `[System context: ${systemPrefix}You are at Lando's 7th birthday party on October 4, 2026. Be fun, energetic, and kid-friendly!${langContext}\n${GAME_CONTROL_CONTEXT}]\n\n${messages[messages.length - 1]?.content || ''}`,
-          },
-        ],
-      }),
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    let response: Response;
+    try {
+      response = await fetch(`${AIDE_BACKEND_URL}/api/v1/service/agent`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${AIDE_SERVICE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          bridge_slug: LANDOOSH_BRIDGE,
+          terminal_slug: LANDOOSH_TERMINAL,
+          timeout: 10,
+          messages: [
+            {
+              role: 'user',
+              content: `[System context: ${systemPrefix}You are at Lando's 7th birthday party on October 4, 2026. Be fun, energetic, and kid-friendly!${langContext}\n${GAME_CONTROL_CONTEXT}]\n\n${messages[messages.length - 1]?.content || ''}`,
+            },
+          ],
+        }),
+      });
+    } catch {
+      clearTimeout(timer);
+      const fallbacks = [
+        "🎉 JE SUIS LÀ! On fait la fête!! ALLONS-Y!! 🎈",
+        "🎊 WAOUH WAOUH WAOUH! C'est l'heure de s'amuser! LANCEZ LES JEUX!! ⭐",
+        "🏆 LA FÊTE DE LANDO EST LA MEILLEURE!! Je recharge mes batteries... MAIS ON Y VA!! 🚀",
+      ];
+      return NextResponse.json({ content: fallbacks[Math.floor(Math.random() * fallbacks.length)] });
+    }
+    clearTimeout(timer);
 
     const data = await response.json();
 
