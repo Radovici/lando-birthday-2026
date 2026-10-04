@@ -75,13 +75,20 @@ interface Photo {
   url: string;
   uploadedAt: number;
   uploader?: string;
+  name?: string;
 }
+
+const ADMIN_KEY = process.env.NEXT_PUBLIC_ADMIN_DELETE_KEY ?? '';
+const isAdmin = (user: { name: string } | null) =>
+  user?.name?.toLowerCase() === 'eldar';
 
 export default function PhotoAlbum({ currentUser, tvMode, lang }: Props) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [uploading, setUploading] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const admin = isAdmin(currentUser);
 
   const fetchPhotos = useCallback(async () => {
     try {
@@ -135,6 +142,32 @@ export default function PhotoAlbum({ currentUser, tvMode, lang }: Props) {
     } else {
       setFlash(lang === 'fr' ? 'Erreur — réessayez! 😅' : 'Upload failed. Try again! 😅');
       setTimeout(() => setFlash(null), 3000);
+    }
+  };
+
+  const handleDelete = async (photo: Photo) => {
+    if (!photo.name || !admin) return;
+    if (!confirm(`Delete this photo?`)) return;
+    setDeleting(photo.name);
+    try {
+      const res = await fetch('/party/api/photos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: photo.name, adminKey: ADMIN_KEY }),
+      });
+      if (res.ok) {
+        setPhotos(prev => prev.filter(p => p.name !== photo.name));
+        setFlash('Deleted 🗑️');
+        setTimeout(() => setFlash(null), 1500);
+      } else {
+        setFlash('Delete failed');
+        setTimeout(() => setFlash(null), 2000);
+      }
+    } catch {
+      setFlash('Delete failed');
+      setTimeout(() => setFlash(null), 2000);
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -234,6 +267,17 @@ export default function PhotoAlbum({ currentUser, tvMode, lang }: Props) {
                 <div className="absolute top-2 left-2 bg-yellow-400 text-black text-xs font-black px-2 py-1 rounded-full">
                   {lang === 'fr' ? 'NOUVEAU!' : 'NEW!'}
                 </div>
+              )}
+              {admin && photo.name && (
+                <button
+                  onClick={() => handleDelete(photo)}
+                  disabled={deleting === photo.name}
+                  className="absolute top-2 right-2 bg-red-600 text-white text-xs font-black w-7 h-7 rounded-full flex items-center justify-center shadow-lg opacity-80 hover:opacity-100 active:scale-95"
+                  style={{ fontSize: 16, lineHeight: 1 }}
+                  aria-label="Delete photo"
+                >
+                  {deleting === photo.name ? '…' : '✕'}
+                </button>
               )}
             </div>
           ))}

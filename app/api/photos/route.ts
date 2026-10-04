@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -35,5 +35,24 @@ export async function GET() {
     return NextResponse.json({ photos });
   } catch {
     return NextResponse.json({ photos: [] });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { name, adminKey } = await req.json();
+    if (adminKey !== process.env.ADMIN_DELETE_KEY) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }
+    if (!name || typeof name !== 'string') {
+      return NextResponse.json({ error: 'missing name' }, { status: 400 });
+    }
+    const { error } = await supabase.storage
+      .from('lando-birthday-2026')
+      .remove([name]);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: 'bad request' }, { status: 400 });
   }
 }
