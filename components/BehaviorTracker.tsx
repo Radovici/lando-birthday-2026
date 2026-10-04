@@ -37,6 +37,7 @@ export default function BehaviorTracker({ currentUser, lang }: Props) {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [mode, setMode] = useState<'star' | 'demerit'>('star');
   const [selectedReason, setSelectedReason] = useState('');
+  const [customReason, setCustomReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [flash, setFlash] = useState<{ type: 'star' | 'demerit'; name: string } | null>(null);
   const [confetti, setConfetti] = useState<ConfettiPiece[]>([]);
@@ -89,8 +90,9 @@ export default function BehaviorTracker({ currentUser, lang }: Props) {
       // Store reason in English so it's consistent in DB
       const reasons = mode === 'star' ? STAR_REASONS : DEMERIT_REASONS;
       const reasonsFR = mode === 'star' ? STAR_REASONS_FR : DEMERIT_REASONS_FR;
-      const reasonIndex = (lang === 'fr' ? reasonsFR : reasons).indexOf(selectedReason);
-      const dbReason = reasonIndex >= 0 ? reasons[reasonIndex] : selectedReason;
+      const effectiveReason = selectedReason === '__custom__' ? customReason.trim() : selectedReason;
+      const reasonIndex = (lang === 'fr' ? reasonsFR : reasons).indexOf(effectiveReason);
+      const dbReason = reasonIndex >= 0 ? reasons[reasonIndex] : effectiveReason;
 
       await supabase.from('lando_party_events').insert({
         player_id: selectedPlayer.id,
@@ -114,6 +116,7 @@ export default function BehaviorTracker({ currentUser, lang }: Props) {
       setTimeout(() => setFlash(null), 2500);
       setSelectedPlayer(null);
       setSelectedReason('');
+      setCustomReason('');
       fetchPlayers();
     } finally {
       setLoading(false);
@@ -238,7 +241,7 @@ export default function BehaviorTracker({ currentUser, lang }: Props) {
             {reasons.map((reason) => (
               <button
                 key={reason}
-                onClick={() => setSelectedReason(reason)}
+                onClick={() => { setSelectedReason(reason); setCustomReason(''); }}
                 className={`py-4 px-5 rounded-xl text-left font-semibold text-lg transition-all ${
                   selectedReason === reason
                     ? mode === 'star'
@@ -250,12 +253,34 @@ export default function BehaviorTracker({ currentUser, lang }: Props) {
                 {mode === 'star' ? '⭐' : '😈'} {reason}
               </button>
             ))}
+            {/* Custom write-in */}
+            <button
+              onClick={() => setSelectedReason('__custom__')}
+              className={`py-4 px-5 rounded-xl text-left font-semibold text-lg transition-all ${
+                selectedReason === '__custom__'
+                  ? mode === 'star' ? 'bg-yellow-400 text-black' : 'bg-red-500 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-600'
+              }`}
+            >
+              ✏️ {lang === 'fr' ? 'Autre raison…' : 'Other reason…'}
+            </button>
+            {selectedReason === '__custom__' && (
+              <input
+                autoFocus
+                type="text"
+                value={customReason}
+                onChange={e => setCustomReason(e.target.value)}
+                placeholder={lang === 'fr' ? 'Décris ce qui s\'est passé…' : 'Describe what happened…'}
+                className="w-full py-4 px-5 rounded-xl bg-gray-700 text-white text-lg border-2 border-yellow-400 outline-none"
+                maxLength={80}
+              />
+            )}
           </div>
         </div>
       )}
 
       {/* Submit button */}
-      {selectedPlayer && selectedReason && currentUser && (
+      {selectedPlayer && selectedReason && (selectedReason !== '__custom__' || customReason.trim()) && currentUser && (
         <div className="fixed bottom-20 left-0 right-0 p-4 bg-gray-900/95">
           <button
             onClick={submitEvent}
