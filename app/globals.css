@@ -122,6 +122,33 @@ body {
   100% { transform: scale(1); }
 }
 
+/* TV slideshow animations */
+@keyframes kenBurns {
+  0% { transform: scale(1.0); }
+  100% { transform: scale(1.18); }
+}
+
+@keyframes tvFadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes tvFadeOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes flashScaleIn {
+  0% { transform: scale(0.55) rotate(-3deg); opacity: 0; }
+  55% { transform: scale(1.08) rotate(1deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-16px); }
+}
+
 /* Photo wall */
 .photo-card {
   transition: transform 0.3s ease;

@@ -85,9 +85,20 @@ export default function PhotoAlbum({ currentUser, tvMode, lang }: Props) {
       <h2 className="text-3xl font-black text-center text-white mb-2 uppercase tracking-wide">
         {lang === 'fr' ? '📸 Photos de fête' : '📸 Party Photos'}
       </h2>
-      <p className="text-center text-gray-400 mb-6">
-        {lang === 'fr' ? 'Partagez vos moments de fête!' : 'Share your party moments!'}
-      </p>
+
+      {/* Album promise banner */}
+      <div className="mx-auto max-w-md mb-6 rounded-2xl text-center px-6 py-4"
+        style={{ background: 'linear-gradient(135deg, rgba(236,72,153,0.15), rgba(168,85,247,0.15))', border: '1px solid rgba(236,72,153,0.3)' }}>
+        <div className="text-2xl mb-1">🎁</div>
+        <p className="text-pink-300 font-bold text-base">
+          {lang === 'fr'
+            ? 'Nous ferons un album photo pour tout le monde!'
+            : "We'll make a photo album for everyone at the party!"}
+        </p>
+        <p className="text-gray-400 text-sm mt-1">
+          {lang === 'fr' ? 'Ajoutez vos photos — elles seront dans l\'album!' : 'Upload your pics — they go in the album!'}
+        </p>
+      </div>
 
       {/* Upload button */}
       {!tvMode && (
@@ -102,11 +113,15 @@ export default function PhotoAlbum({ currentUser, tvMode, lang }: Props) {
           />
           <label
             htmlFor="photo-upload"
-            className={`inline-flex items-center gap-3 cursor-pointer py-5 px-10 rounded-2xl font-black text-2xl transition-all ${
+            className={`inline-flex items-center gap-3 cursor-pointer py-6 px-12 rounded-3xl font-black text-2xl transition-all ${
               uploading
                 ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:scale-105 hover:shadow-[0_0_30px_rgba(236,72,153,0.5)]'
+                : 'text-white hover:scale-105'
             }`}
+            style={uploading ? {} : {
+              background: 'linear-gradient(135deg, #ec4899, #a855f7)',
+              boxShadow: '0 0 40px rgba(236,72,153,0.4)',
+            }}
           >
             {uploading
               ? (lang === 'fr' ? '⏳ Envoi...' : '⏳ Uploading...')
