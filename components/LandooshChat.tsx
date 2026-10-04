@@ -43,13 +43,21 @@ const QUICK_PROMPTS_EN = [
 const STORAGE_KEY = 'landoosh_chat_history';
 
 export default function LandooshChat({ currentUser, lang }: Props) {
-  const [messages, setMessages] = useState<Message[]>(() => {
+  const [messages, setMessages] = useState<Message[]>([
+    { role: 'assistant', content: lang === 'fr' ? GREETING_FR : GREETING_EN, timestamp: Date.now() },
+  ]);
+
+  // Restore from localStorage after hydration (SSR-safe)
+  useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved) as Message[];
+      if (saved) {
+        const parsed = JSON.parse(saved) as Message[];
+        if (parsed.length > 0) setMessages(parsed);
+      }
     } catch { /* ignore */ }
-    return [{ role: 'assistant', content: lang === 'fr' ? GREETING_FR : GREETING_EN, timestamp: Date.now() }];
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);

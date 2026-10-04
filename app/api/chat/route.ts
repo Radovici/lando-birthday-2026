@@ -51,10 +51,11 @@ export async function POST(req: NextRequest) {
           bridge_slug: LANDOOSH_BRIDGE,
           terminal_slug: LANDOOSH_TERMINAL,
           timeout: 10,
+          system: `You are LANDOOSH 🎉 — the wildly energetic AI party host for Lando Radovici's 7th birthday party, October 4 2026! Keep replies SHORT and PUNCHY (2-4 sentences). Bilingual French/English — Lycée Français de New York crowd. Make every kid feel like a superstar! Lando turns 7 today, loves soccer, siblings Bowie (4) and Posie (2), camp = Deer Mountain Day Camp, country house in Garrison NY. When controlling games output [GAME:fibbage:phase=answering:question=1] style commands at END of message. ${systemPrefix}${langContext}`,
           messages: [
             {
               role: 'user',
-              content: `[System context: ${systemPrefix}You are at Lando's 7th birthday party on October 4, 2026. Be fun, energetic, and kid-friendly!${langContext}\n${GAME_CONTROL_CONTEXT}]\n\n${messages[messages.length - 1]?.content || ''}`,
+              content: messages[messages.length - 1]?.content || '',
             },
           ],
         }),
