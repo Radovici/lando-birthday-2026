@@ -2,6 +2,16 @@
 const nextConfig = {
   basePath: '/party',
   assetPrefix: '/party',
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/party',
+        basePath: false,
+        permanent: false,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {
