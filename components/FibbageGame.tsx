@@ -28,6 +28,8 @@ export default function FibbageGame({ currentUser, lang }: Props) {
   // Refs so subscription callbacks always see the latest values without stale closures
   const currentUserRef = useRef(currentUser);
   const langRef = useRef(lang);
+  // Synchronous vote guard — prevents double-tap race before React re-renders
+  const hasVotedRef = useRef(false);
   useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
   useEffect(() => { langRef.current = lang; }, [lang]);
 
@@ -112,8 +114,10 @@ export default function FibbageGame({ currentUser, lang }: Props) {
     try {
       const wasVoted = localStorage.getItem(`fibbage_voted_${currentQuestionId}`) === 'true';
       setVoted(wasVoted);
+      hasVotedRef.current = wasVoted;
     } catch {
       setVoted(false);
+      hasVotedRef.current = false;
     }
   }, [currentQuestionId]);
 
@@ -211,19 +215,20 @@ export default function FibbageGame({ currentUser, lang }: Props) {
   };
 
   const voteForAnswer = async (answerId: string) => {
-    if (!currentUser || loading || voted) return;
+    if (!currentUser || loading || voted || hasVotedRef.current) return;
     const answer = answers.find(a => a.id === answerId);
     if (!answer || answer.player_name === currentUser.name) return;
+
+    // Lock synchronously BEFORE any await — prevents double-tap race
+    hasVotedRef.current = true;
+    setVoted(true);
+    try { localStorage.setItem(`fibbage_voted_${currentQuestionId}`, 'true'); } catch { /* ignore */ }
 
     setLoading(true);
     try {
       await supabase.from('lando_party_fibbage').update({
         votes: answer.votes + 1,
       }).eq('id', answerId);
-
-      // Lock this player out of voting again on this question
-      try { localStorage.setItem(`fibbage_voted_${currentQuestionId}`, 'true'); } catch { /* ignore */ }
-      setVoted(true);
 
       setFlash(answer.is_real
         ? (lang === 'fr' ? '✅ Tu as trouvé la vraie réponse!' : '✅ You found the real answer!')
