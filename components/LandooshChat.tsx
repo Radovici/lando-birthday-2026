@@ -113,7 +113,7 @@ export default function LandooshChat({ currentUser, lang }: Props) {
     const langNote = lang === 'fr' ? ' Réponds en français.' : ' Respond in English.';
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch('/party/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

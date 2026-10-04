@@ -54,13 +54,19 @@ export async function POST(req: NextRequest) {
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AIDE error:', errorText);
-      return NextResponse.json({ error: 'AI unavailable' }, { status: 502 });
+    const data = await response.json();
+
+    // Handle AIDE timeout or error gracefully with a fun in-character response
+    if (!response.ok || data.detail?.includes('did not respond')) {
+      const fallbacks = [
+        "🎉 JE SUIS LÀ! On fait la fête!! ALLONS-Y!! 🎈",
+        "🎊 WAOUH WAOUH WAOUH! C'est l'heure de s'amuser! LANCEZ LES JEUX!! ⭐",
+        "🏆 LA FÊTE DE LANDO EST LA MEILLEURE!! Je recharge mes batteries... MAIS ON Y VA!! 🚀",
+      ];
+      const fallback = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+      return NextResponse.json({ content: fallback });
     }
 
-    const data = await response.json();
     const rawContent: string = data.content || "PARTY TIME! Let's go! 🎉";
 
     // Parse any [GAME:...] commands from the response
