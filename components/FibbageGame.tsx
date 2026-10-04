@@ -21,6 +21,7 @@ export default function FibbageGame({ currentUser, lang }: Props) {
   const [answers, setAnswers] = useState<FibbageAnswer[]>([]);
   const [myAnswer, setMyAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [voted, setVoted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -106,6 +107,16 @@ export default function FibbageGame({ currentUser, lang }: Props) {
     }
   }, [answers, currentUser]);
 
+  // Restore voted state from localStorage when question changes
+  useEffect(() => {
+    try {
+      const wasVoted = localStorage.getItem(`fibbage_voted_${currentQuestionId}`) === 'true';
+      setVoted(wasVoted);
+    } catch {
+      setVoted(false);
+    }
+  }, [currentQuestionId]);
+
   // --- Host controls (write to game_state) ---
   const setPhase = async (newPhase: string, questionId?: number) => {
     const { error } = await supabase.from('lando_party_game_state').upsert({
@@ -122,15 +133,40 @@ export default function FibbageGame({ currentUser, lang }: Props) {
     await fetchRemoteState();
   };
 
-  const startGame = () => setPhase('answering', 1);
+  // Seed the real answer for a question so it appears in voting/results.
+  // Uses the current lang so the answer blends with players' fake answers.
+  const seedRealAnswer = useCallback(async (questionId: number) => {
+    const q = FIBBAGE_QUESTIONS.find(q => q.id === questionId);
+    if (!q) return;
+    const { data: existing } = await supabase
+      .from('lando_party_fibbage')
+      .select('id')
+      .eq('question_id', questionId)
+      .eq('is_real', true)
+      .maybeSingle();
+    if (!existing) {
+      await supabase.from('lando_party_fibbage').insert({
+        question_id: questionId,
+        player_name: 'Landoosh',
+        answer: langRef.current === 'fr' ? q.realAnswerFR : q.realAnswer,
+        is_real: true,
+      });
+    }
+  }, []);
+
+  const startGame = async () => {
+    await seedRealAnswer(1);
+    setPhase('answering', 1);
+  };
 
   const showAnswers = async () => {
     if (!currentQ) return;
+    // Safety-net: seed real answer if not already present (e.g. startGame raced)
     const exists = answers.some(a => a.is_real);
     if (!exists) {
       await supabase.from('lando_party_fibbage').insert({
         question_id: currentQuestionId,
-        player_name: 'Lando',
+        player_name: 'Landoosh',
         answer: lang === 'fr' ? currentQ.realAnswerFR : currentQ.realAnswer,
         is_real: true,
       });
@@ -139,12 +175,13 @@ export default function FibbageGame({ currentUser, lang }: Props) {
     fetchAnswers();
   };
 
-  const nextQuestion = () => {
+  const nextQuestion = async () => {
     const nextId = currentQuestionId < FIBBAGE_QUESTIONS.length
       ? currentQuestionId + 1
       : 1;
     setMyAnswer('');
     setSubmitted(false);
+    await seedRealAnswer(nextId);
     setPhase('answering', nextId);
   };
 
@@ -174,7 +211,7 @@ export default function FibbageGame({ currentUser, lang }: Props) {
   };
 
   const voteForAnswer = async (answerId: string) => {
-    if (!currentUser || loading) return;
+    if (!currentUser || loading || voted) return;
     const answer = answers.find(a => a.id === answerId);
     if (!answer || answer.player_name === currentUser.name) return;
 
@@ -183,6 +220,10 @@ export default function FibbageGame({ currentUser, lang }: Props) {
       await supabase.from('lando_party_fibbage').update({
         votes: answer.votes + 1,
       }).eq('id', answerId);
+
+      // Lock this player out of voting again on this question
+      try { localStorage.setItem(`fibbage_voted_${currentQuestionId}`, 'true'); } catch { /* ignore */ }
+      setVoted(true);
 
       setFlash(answer.is_real
         ? (lang === 'fr' ? '✅ Tu as trouvé la vraie réponse!' : '✅ You found the real answer!')
@@ -377,14 +418,20 @@ export default function FibbageGame({ currentUser, lang }: Props) {
               : "Which one is Lando's REAL answer? Tap to vote!"}
           </p>
 
+          {voted && (
+            <div className="mb-4 text-center bg-green-500/20 border border-green-500/40 rounded-xl py-3 px-4 text-green-300 font-bold text-lg">
+              {lang === 'fr' ? '✅ Tu as voté!' : '✅ You voted!'}
+            </div>
+          )}
+
           <div className="space-y-3 mb-8">
             {shuffledAnswers.map((answer) => (
               <button
                 key={answer.id}
                 onClick={() => voteForAnswer(answer.id)}
-                disabled={answer.player_name === currentUser?.name || loading}
+                disabled={answer.player_name === currentUser?.name || loading || voted}
                 className={`w-full p-4 rounded-xl text-left transition-all border ${
-                  answer.player_name === currentUser?.name
+                  answer.player_name === currentUser?.name || voted
                     ? 'opacity-50 cursor-not-allowed bg-gray-800 border-gray-600'
                     : 'bg-white/10 border-white/20 hover:bg-white/20 hover:border-white/40'
                 }`}
