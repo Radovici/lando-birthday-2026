@@ -6,7 +6,7 @@ const nextConfig = {
     return [
       {
         source: '/',
-        destination: '/party',
+        destination: 'https://longovici.com/lando',
         basePath: false,
         permanent: false,
       },
