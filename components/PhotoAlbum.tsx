@@ -24,7 +24,7 @@ export default function PhotoAlbum({ currentUser, tvMode, lang }: Props) {
 
   const fetchPhotos = useCallback(async () => {
     try {
-      const res = await fetch('/api/photos');
+      const res = await fetch('/party/api/photos');
       if (res.ok) {
         const data = await res.json();
         setPhotos(data.photos || []);
@@ -49,7 +49,7 @@ export default function PhotoAlbum({ currentUser, tvMode, lang }: Props) {
       formData.append('file', file);
       formData.append('uploaderName', currentUser?.name || 'guest');
 
-      const res = await fetch('/api/upload', {
+      const res = await fetch('/party/api/upload', {
         method: 'POST',
         body: formData,
       });
