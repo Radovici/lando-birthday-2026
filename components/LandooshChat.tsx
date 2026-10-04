@@ -40,14 +40,16 @@ const QUICK_PROMPTS_EN = [
   'Reveal results! 🏆',
 ];
 
+const STORAGE_KEY = 'landoosh_chat_history';
+
 export default function LandooshChat({ currentUser, lang }: Props) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content: lang === 'fr' ? GREETING_FR : GREETING_EN,
-      timestamp: Date.now(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved) as Message[];
+    } catch { /* ignore */ }
+    return [{ role: 'assistant', content: lang === 'fr' ? GREETING_FR : GREETING_EN, timestamp: Date.now() }];
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -63,6 +65,7 @@ export default function LandooshChat({ currentUser, lang }: Props) {
   }, [lang]);
 
   useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-40))); } catch { /* ignore */ }
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
